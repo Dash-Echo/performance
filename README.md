@@ -1,30 +1,29 @@
-# Echoenergia — Dashboard de Mídia Paga (30 dias)
+# Echoenergia — Dashboard de Mídia Paga (com filtro de período)
 
-Dashboard estático comparando **Google Ads** e **Meta** com dados dos últimos 30 dias,
-extraídos via **Windsor.ai** (GA4 · Google Ads · Meta).
+Dashboard estático e interativo. Os dados diários dos últimos 90 dias estão
+embutidos no `index.html`; o filtro de datas fatia tudo no navegador, sem backend.
 
-## O que mostra
-- KPIs do período (investimento, conversões de funil, custo/conversão, impressões)
-- Canais lado a lado: gasto, CTR, CPM e eficiência clique × conversão
-- **Share de budget × share de retorno** (o descasamento central)
-- **Canal com mais espaço de escala** (índice retorno ÷ budget)
-- Tabela comparativa com os dados brutos
+## O que faz
+- **Filtro de período:** escolha intervalo livre (De / Até) ou use atalhos
+  (Ontem, 7d, 14d, 30d, 90d). Tudo recalcula na hora.
+- **Tráfego do site (GA4):** sessões, usuários, novos usuários, sessões/usuário + evolução diária.
+- **Mídia paga:** investimento, cliques, CPC, CPM, impressões (Google + Meta).
+- **Google vs Meta:** gasto e cliques diários por plataforma + tabela comparativa
+  (gasto, impressões, cliques, CPC, CPM, CTR, conversões, R$/conv).
 
-## Nota metodológica
-- Conversões = conclusão real de funil medida no **GA4** por canal de origem da sessão
-  (não o clique/conversão de pixel da plataforma).
-- **ROAS monetário não disponível:** nenhuma conta tem valor de receita configurado
-  nas conversões. Sendo uma operação de geração de lead, "retorno" é lido em volume e
-  custo de conversão, não em faturamento.
+## Fonte e granularidade
+Dados via Windsor.ai (GA4 · Google Ads · Meta), base diária, 90 dias até 29/06/2026.
+"Sempre baseado no que a plataforma fornece diariamente" — granularidade por dia.
 
-## Stack
-HTML + CSS + Chart.js (via CDN). Sem build step.
+## Conversões
+A tabela comparativa usa o registro **diário do pixel** de cada plataforma
+(granularidade por dia). É mais conservador que a conclusão de funil do GA4 —
+o pixel do Google subcontabiliza leads. Para custo-por-lead "real", a referência é o GA4.
 
-## Rodar local
-Abra `index.html` no navegador, ou:
-```
-npx serve .
-```
+## Atualizar com dias novos
+Os dados vão até a data em que o arquivo foi gerado. Para trazer dias novos,
+é preciso regenerar o `index.html` (peça ao assistente, ou evolua para a versão
+com Netlify Functions que busca do Windsor ao vivo).
 
 ## Deploy
-Configurado para Netlify via `netlify.toml` (publica a raiz). Veja instruções no chat.
+Static site. Suba `index.html` no repositório e o Netlify republica sozinho.
