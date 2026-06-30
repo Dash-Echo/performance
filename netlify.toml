@@ -1,0 +1,9 @@
+# Site estático — não há build step, apenas publica a raiz.
+[build]
+  publish = "."
+
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Frame-Options = "SAMEORIGIN"
+    X-Content-Type-Options = "nosniff"

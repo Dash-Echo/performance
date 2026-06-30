@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Echoenergia · Mídia Paga — Últimos 30 dias</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700;800&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+  :root{
+    --bg:#0A0F0D;          /* deep near-black, energia */
+    --panel:#101714;        /* painel */
+    --panel-2:#16201B;
+    --line:#22302A;
+    --ink:#EAF2EE;          /* texto claro */
+    --muted:#8FA39A;        /* texto secundário */
+    --echo:#00E08A;         /* verde echo (renovável) */
+    --echo-dim:#0B7E54;
+    --google:#4C8DFF;       /* azul para Google */
+    --meta:#C46BFF;         /* roxo para Meta */
+    --warn:#FFB454;
+    --radius:16px;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html{scroll-behavior:smooth}
+  body{
+    background:
+      radial-gradient(1200px 600px at 85% -10%, rgba(0,224,138,.10), transparent 60%),
+      radial-gradient(900px 500px at 0% 0%, rgba(76,141,255,.06), transparent 55%),
+      var(--bg);
+    color:var(--ink);
+    font-family:'Inter',system-ui,sans-serif;
+    line-height:1.5;
+    -webkit-font-smoothing:antialiased;
+    min-height:100vh;
+  }
+  .wrap{max-width:1180px;margin:0 auto;padding:0 24px}
+
+  /* ---------- HERO ---------- */
+  header.hero{padding:54px 0 30px;border-bottom:1px solid var(--line)}
+  .brand{display:flex;align-items:center;gap:13px;margin-bottom:30px}
+  .brand .mark{width:34px;height:34px;border-radius:9px;background:linear-gradient(135deg,var(--echo),var(--echo-dim));position:relative;flex:none;box-shadow:0 0 24px rgba(0,224,138,.35)}
+  .brand .mark::after{content:"";position:absolute;inset:9px;border-radius:4px;background:var(--bg)}
+  .brand b{font-family:'Sora';font-weight:700;letter-spacing:-.3px;font-size:17px}
+  .brand span{color:var(--muted);font-size:12px;margin-left:2px}
+  .eyebrow{font-family:'JetBrains Mono';font-size:12px;letter-spacing:2px;text-transform:uppercase;color:var(--echo);margin-bottom:16px}
+  h1{font-family:'Sora';font-weight:800;font-size:clamp(30px,5vw,52px);line-height:1.04;letter-spacing:-1.2px;max-width:18ch}
+  h1 .hl{color:var(--echo)}
+  .sub{color:var(--muted);max-width:60ch;margin-top:18px;font-size:16px}
+  .period{display:inline-flex;gap:18px;flex-wrap:wrap;margin-top:24px;font-family:'JetBrains Mono';font-size:12.5px;color:var(--muted)}
+  .period b{color:var(--ink);font-weight:600}
+
+  /* ---------- VERDICT BAR ---------- */
+  .verdict{margin:34px 0 8px;background:linear-gradient(100deg,rgba(255,180,84,.10),rgba(255,180,84,.02));border:1px solid rgba(255,180,84,.25);border-radius:var(--radius);padding:20px 22px;display:flex;gap:18px;align-items:flex-start}
+  .verdict .ic{font-size:20px;line-height:1.2}
+  .verdict p{font-size:15px}
+  .verdict b{color:var(--warn)}
+
+  /* ---------- SECTION ---------- */
+  section{padding:42px 0}
+  .sec-head{display:flex;align-items:baseline;gap:14px;margin-bottom:22px}
+  .sec-head .n{font-family:'JetBrains Mono';color:var(--echo);font-size:13px;font-weight:600}
+  .sec-head h2{font-family:'Sora';font-weight:700;font-size:23px;letter-spacing:-.5px}
+  .sec-head .h-note{color:var(--muted);font-size:13px;margin-left:auto;text-align:right}
+
+  /* ---------- KPI STRIP ---------- */
+  .kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}
+  .kpi{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:18px 18px 16px}
+  .kpi .lab{font-size:11.5px;text-transform:uppercase;letter-spacing:1.2px;color:var(--muted);font-family:'JetBrains Mono'}
+  .kpi .val{font-family:'Sora';font-weight:700;font-size:27px;margin-top:10px;letter-spacing:-.5px}
+  .kpi .val small{font-size:14px;color:var(--muted);font-weight:500}
+  .kpi .delta{font-size:12px;margin-top:6px;font-family:'JetBrains Mono'}
+  .up{color:var(--echo)} .down{color:#FF7A7A}
+
+  /* ---------- GRID OF PANELS ---------- */
+  .panels{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+  .panel{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:22px}
+  .panel.full{grid-column:1/-1}
+  .panel h3{font-family:'Sora';font-weight:600;font-size:15px;margin-bottom:4px}
+  .panel .desc{color:var(--muted);font-size:12.5px;margin-bottom:18px}
+  .chart-box{position:relative;height:300px}
+  .chart-box.tall{height:340px}
+  .legend{display:flex;gap:18px;margin-top:14px;flex-wrap:wrap}
+  .legend span{display:inline-flex;align-items:center;gap:7px;font-size:12.5px;color:var(--muted)}
+  .dot{width:10px;height:10px;border-radius:3px;flex:none}
+
+  /* ---------- SHARE SPLIT ---------- */
+  .split{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+  .share-card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:22px}
+  .share-card h3{font-family:'Sora';font-weight:600;font-size:14px;color:var(--muted);margin-bottom:18px;text-transform:uppercase;letter-spacing:1px}
+  .bar-row{margin-bottom:16px}
+  .bar-row .top{display:flex;justify-content:space-between;font-size:13px;margin-bottom:7px}
+  .bar-row .top b{font-family:'Sora'}
+  .track{height:12px;border-radius:6px;background:var(--panel-2);overflow:hidden}
+  .fill{height:100%;border-radius:6px;transition:width 1.1s cubic-bezier(.2,.7,.2,1)}
+
+  /* ---------- SCALE CALLOUT ---------- */
+  .scale{background:linear-gradient(120deg,rgba(0,224,138,.12),rgba(0,224,138,.02));border:1px solid rgba(0,224,138,.3);border-radius:var(--radius);padding:28px;display:grid;grid-template-columns:1.3fr 1fr;gap:26px;align-items:center}
+  .scale .big{font-family:'Sora';font-weight:800;font-size:46px;color:var(--echo);letter-spacing:-1.5px;line-height:1}
+  .scale .big small{display:block;font-size:13px;color:var(--muted);font-weight:500;letter-spacing:0;margin-top:8px;font-family:'Inter'}
+  .scale p{font-size:14.5px}
+  .scale ul{list-style:none;margin-top:12px}
+  .scale li{font-size:13.5px;color:var(--muted);padding:5px 0 5px 20px;position:relative}
+  .scale li::before{content:"→";position:absolute;left:0;color:var(--echo)}
+
+  /* ---------- TABLE ---------- */
+  table{width:100%;border-collapse:collapse;margin-top:4px;font-size:13.5px}
+  th,td{text-align:right;padding:12px 14px;border-bottom:1px solid var(--line)}
+  th:first-child,td:first-child{text-align:left}
+  thead th{font-family:'JetBrains Mono';font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--muted);font-weight:600}
+  tbody tr:hover{background:var(--panel-2)}
+  td.chan{font-weight:600;font-family:'Sora'}
+  .pill{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:8px;vertical-align:middle}
+  td.mono{font-family:'JetBrains Mono'}
+
+  footer{border-top:1px solid var(--line);padding:30px 0 50px;color:var(--muted);font-size:12.5px;display:flex;justify-content:space-between;flex-wrap:wrap;gap:12px}
+  footer a{color:var(--echo);text-decoration:none}
+
+  @media(max-width:860px){
+    .kpis{grid-template-columns:repeat(2,1fr)}
+    .panels,.split,.scale{grid-template-columns:1fr}
+    .sec-head .h-note{display:none}
+  }
+  @media(prefers-reduced-motion:reduce){.fill{transition:none}}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="hero">
+    <div class="brand">
+      <div class="mark"></div>
+      <b>Echoenergia</b><span>· uma empresa do Grupo Equatorial</span>
+    </div>
+    <div class="eyebrow">Performance de mídia paga</div>
+    <h1>Google entrega <span class="hl">92% do retorno</span> com 40% do budget. Meta faz o inverso.</h1>
+    <p class="sub">Comparativo de Google Ads e Meta nos últimos 30 dias: gasto, CTR, CPM e — o que mais importa — a conversão real de funil medida no GA4, não o clique de plataforma.</p>
+    <div class="period">
+      <span>Período: <b>últimos 30 dias</b></span>
+      <span>Fonte: <b>Windsor.ai · GA4 · Google Ads · Meta</b></span>
+      <span>Conta: <b>Echoenergia</b></span>
+    </div>
+  </header>
+
+  <div class="verdict">
+    <div class="ic">⚡</div>
+    <p><b>Leitura rápida.</b> O Meta consome a maior fatia do investimento (R$ 22,5 mil, 60%) mas converte a R$ 207 por lead. O Google converte a R$ 12 — <b>17× mais barato</b> — e ainda tem orçamento diário sobrando para escalar. O retorno não acompanha o clique: CTR e CPM não contam essa história, a conclusão de funil conta.</p>
+  </div>
+
+  <!-- ===== KPIs ===== -->
+  <section id="kpis">
+    <div class="sec-head"><span class="n">01</span><h2>Os números do período</h2><span class="h-note">Gasto e tráfego por plataforma · 30d</span></div>
+    <div class="kpis">
+      <div class="kpi"><div class="lab">Investimento total</div><div class="val">R$ 37,7<small>k</small></div><div class="delta">Google R$ 15,1k · Meta R$ 22,5k</div></div>
+      <div class="kpi"><div class="lab">Conversões (funil GA4)</div><div class="val">1.345</div><div class="delta up">Google 1.236 · Meta 109</div></div>
+      <div class="kpi"><div class="lab">Custo / conversão</div><div class="val">R$ 28<small>,03 méd.</small></div><div class="delta">Google R$ 12 · <span class="down">Meta R$ 207</span></div></div>
+      <div class="kpi"><div class="lab">Impressões</div><div class="val">1,77<small>M</small></div><div class="delta">Meta 1,18M · Google 586k</div></div>
+    </div>
+  </section>
+
+  <!-- ===== CANAIS LADO A LADO ===== -->
+  <section id="canais">
+    <div class="sec-head"><span class="n">02</span><h2>Canais lado a lado</h2><span class="h-note">Mesma escala, métricas normalizadas</span></div>
+    <div class="panels">
+      <div class="panel">
+        <h3>Gasto, CTR e CPM</h3>
+        <p class="desc">CTR e CPM em eixo próprio para comparar plataformas de tamanhos diferentes.</p>
+        <div class="chart-box"><canvas id="cMetrics"></canvas></div>
+      </div>
+      <div class="panel">
+        <h3>Eficiência: clique × conversão real</h3>
+        <p class="desc">Meta gera 3× mais cliques, mas a conversão de funil colapsa.</p>
+        <div class="chart-box"><canvas id="cEff"></canvas></div>
+      </div>
+      <div class="panel full">
+        <h3>Custo por conversão de funil (GA4)</h3>
+        <p class="desc">A métrica que decide a realocação. Quanto menor, melhor o retorno por real investido.</p>
+        <div class="chart-box" style="height:200px"><canvas id="cCPL"></canvas></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== SHARE BUDGET x RETORNO ===== -->
+  <section id="share">
+    <div class="sec-head"><span class="n">03</span><h2>Share de budget × share de retorno</h2><span class="h-note">Onde o dinheiro está vs. onde o resultado nasce</span></div>
+    <div class="split">
+      <div class="share-card">
+        <h3>Share de budget</h3>
+        <div class="bar-row">
+          <div class="top"><span><span class="pill" style="background:var(--google)"></span>Google Ads</span><b>40,2%</b></div>
+          <div class="track"><div class="fill" data-w="40.2" style="background:var(--google)"></div></div>
+        </div>
+        <div class="bar-row">
+          <div class="top"><span><span class="pill" style="background:var(--meta)"></span>Meta</span><b>59,8%</b></div>
+          <div class="track"><div class="fill" data-w="59.8" style="background:var(--meta)"></div></div>
+        </div>
+      </div>
+      <div class="share-card">
+        <h3>Share de retorno (conversões)</h3>
+        <div class="bar-row">
+          <div class="top"><span><span class="pill" style="background:var(--google)"></span>Google Ads</span><b>91,9%</b></div>
+          <div class="track"><div class="fill" data-w="91.9" style="background:var(--google)"></div></div>
+        </div>
+        <div class="bar-row">
+          <div class="top"><span><span class="pill" style="background:var(--meta)"></span>Meta</span><b>8,1%</b></div>
+          <div class="track"><div class="fill" data-w="8.1" style="background:var(--meta)"></div></div>
+        </div>
+      </div>
+    </div>
+    <div class="panel full" style="margin-top:18px">
+      <h3>O descasamento, visto de frente</h3>
+      <p class="desc">Se budget e retorno andassem juntos, as duas barras de cada plataforma teriam o mesmo tamanho. Não têm.</p>
+      <div class="chart-box"><canvas id="cShare"></canvas></div>
+    </div>
+  </section>
+
+  <!-- ===== ESCALA ===== -->
+  <section id="escala">
+    <div class="sec-head"><span class="n">04</span><h2>Onde está o espaço de escala</h2><span class="h-note">Capacidade de absorver mais verba sem perder eficiência</span></div>
+    <div class="scale">
+      <div>
+        <div class="big">Google Ads<small>Índice de eficiência 2,3× — converte acima da sua fatia de budget</small></div>
+        <p style="margin-top:18px">O Google já roda barato (R$ 12/conversão) e tem <b style="color:var(--ink)">orçamento diário sobrando</b> nas campanhas de fundo. É o único canal que comporta mais investimento sem deteriorar o custo por lead.</p>
+        <ul>
+          <li>Search Fundo: melhor clique→conversão real (6%), CTR baixo esconde a qualidade</li>
+          <li>Pmax Fundo e Meio: volume de conversão com custo saudável</li>
+          <li>Verba a migrar vem das campanhas Meta de pior conclusão</li>
+        </ul>
+      </div>
+      <div class="chart-box tall"><canvas id="cScale"></canvas></div>
+    </div>
+  </section>
+
+  <!-- ===== TABELA ===== -->
+  <section id="detalhe">
+    <div class="sec-head"><span class="n">05</span><h2>Tabela comparativa</h2><span class="h-note">Dados brutos do período</span></div>
+    <div class="panel full">
+      <table>
+        <thead><tr><th>Plataforma</th><th>Gasto</th><th>Impressões</th><th>Cliques</th><th>CTR</th><th>CPM</th><th>Conv. (GA4)</th><th>R$ / conv.</th><th>Share retorno</th></tr></thead>
+        <tbody>
+          <tr>
+            <td class="chan"><span class="pill" style="background:var(--google)"></span>Google Ads</td>
+            <td class="mono">R$ 15.131</td><td class="mono">586.454</td><td class="mono">8.435</td>
+            <td class="mono">1,44%</td><td class="mono">R$ 25,80</td><td class="mono">1.236</td>
+            <td class="mono up">R$ 12,24</td><td class="mono">91,9%</td>
+          </tr>
+          <tr>
+            <td class="chan"><span class="pill" style="background:var(--meta)"></span>Meta</td>
+            <td class="mono">R$ 22.525</td><td class="mono">1.179.962</td><td class="mono">25.041</td>
+            <td class="mono">2,12%</td><td class="mono">R$ 19,09</td><td class="mono">109</td>
+            <td class="mono down">R$ 206,65</td><td class="mono">8,1%</td>
+          </tr>
+        </tbody>
+      </table>
+      <p class="desc" style="margin-top:16px">Conversões medidas no GA4 por canal de origem da sessão (conclusão real de funil), não pelo pixel de plataforma. <b style="color:var(--warn)">ROAS monetário não disponível:</b> nenhuma das contas tem valor de receita configurado nas conversões — esta é uma operação de geração de lead, então "retorno" é lido em volume e custo de conversão, não em faturamento.</p>
+    </div>
+  </section>
+
+  <footer>
+    <span>Echoenergia · Dashboard de mídia paga · dados via Windsor.ai (GA4 · Google Ads · Meta)</span>
+    <span>Identidade visual baseada em <a href="https://echoenergia.com.br">echoenergia.com.br</a></span>
+  </footer>
+</div>
+
+<script>
+const C={ink:'#EAF2EE',muted:'#8FA39A',line:'#22302A',echo:'#00E08A',google:'#4C8DFF',meta:'#C46BFF',warn:'#FFB454'};
+Chart.defaults.color=C.muted;
+Chart.defaults.font.family="'Inter',sans-serif";
+Chart.defaults.font.size=12;
+const grid={color:C.line,drawTicks:false};
+const noGrid={display:false};
+
+// 02a — métricas lado a lado (gasto barras + CTR/CPM linhas em eixos próprios)
+new Chart(cMetrics,{
+  data:{
+    labels:['Google Ads','Meta'],
+    datasets:[
+      {type:'bar',label:'Gasto (R$ mil)',data:[15.13,22.52],backgroundColor:[C.google,C.meta],borderRadius:7,yAxisID:'y',barPercentage:.55},
+      {type:'line',label:'CTR (%)',data:[1.44,2.12],borderColor:C.echo,backgroundColor:C.echo,yAxisID:'y1',tension:.3,pointRadius:5,pointHoverRadius:7,borderWidth:2},
+      {type:'line',label:'CPM (R$)',data:[25.80,19.09],borderColor:C.warn,backgroundColor:C.warn,yAxisID:'y2',tension:.3,pointRadius:5,pointHoverRadius:7,borderWidth:2,borderDash:[5,4]}
+    ]
+  },
+  options:{maintainAspectRatio:false,interaction:{intersect:false,mode:'index'},
+    plugins:{legend:{labels:{usePointStyle:true,boxWidth:8,padding:16}}},
+    scales:{
+      y:{position:'left',grid,title:{display:true,text:'Gasto (R$ mil)'},ticks:{callback:v=>v+'k'}},
+      y1:{position:'right',grid:noGrid,title:{display:true,text:'CTR %'},min:0,max:3},
+      y2:{display:false,min:0,max:35},
+      x:{grid:noGrid}
+    }}
+});
+
+// 02b — eficiência cliques vs conversão
+new Chart(cEff,{
+  type:'bar',
+  data:{labels:['Cliques (mil)','Conversões funil'],
+    datasets:[
+      {label:'Google Ads',data:[8.4,1236],backgroundColor:C.google,borderRadius:7,barPercentage:.7},
+      {label:'Meta',data:[25.0,109],backgroundColor:C.meta,borderRadius:7,barPercentage:.7}
+    ]},
+  options:{maintainAspectRatio:false,
+    plugins:{legend:{labels:{usePointStyle:true,boxWidth:8,padding:16}},
+      tooltip:{callbacks:{label:c=>c.dataset.label+': '+(c.dataIndex===0?c.raw+' mil cliques':c.raw+' conversões')}}},
+    scales:{y:{type:'logarithmic',grid,title:{display:true,text:'escala log'}},x:{grid:noGrid}}}
+});
+
+// 02c — custo por conversão
+new Chart(cCPL,{
+  type:'bar',
+  data:{labels:['Google Ads','Meta'],
+    datasets:[{label:'R$ por conversão',data:[12.24,206.65],backgroundColor:[C.google,C.meta],borderRadius:8,barPercentage:.5}]},
+  options:{maintainAspectRatio:false,indexAxis:'y',
+    plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>'R$ '+c.raw.toFixed(2)+' / conversão'}}},
+    scales:{x:{grid,ticks:{callback:v=>'R$ '+v}},y:{grid:noGrid}}}
+});
+
+// 03 — share budget vs retorno agrupado
+new Chart(cShare,{
+  type:'bar',
+  data:{labels:['Share de budget','Share de retorno'],
+    datasets:[
+      {label:'Google Ads',data:[40.2,91.9],backgroundColor:C.google,borderRadius:7,barPercentage:.6},
+      {label:'Meta',data:[59.8,8.1],backgroundColor:C.meta,borderRadius:7,barPercentage:.6}
+    ]},
+  options:{maintainAspectRatio:false,
+    plugins:{legend:{labels:{usePointStyle:true,boxWidth:8,padding:16}},
+      tooltip:{callbacks:{label:c=>c.dataset.label+': '+c.raw+'%'}}},
+    scales:{y:{grid,max:100,ticks:{callback:v=>v+'%'}},x:{grid:noGrid}}}
+});
+
+// 04 — espaço de escala (eficiência index)
+new Chart(cScale,{
+  type:'bar',
+  data:{labels:['Google Ads','Meta'],
+    datasets:[{label:'Índice retorno ÷ budget',data:[2.29,0.14],
+      backgroundColor:[C.echo,C.meta],borderRadius:8,barPercentage:.5}]},
+  options:{maintainAspectRatio:false,
+    plugins:{legend:{display:false},
+      tooltip:{callbacks:{label:c=>c.raw+'×  (1,0 = budget e retorno equilibrados)'}}},
+    scales:{y:{grid,title:{display:true,text:'× equilíbrio'},
+      ticks:{callback:v=>v+'x'}},x:{grid:noGrid}},
+    // linha de referência em 1.0
+  },
+  plugins:[{id:'ref',afterDraw(ch){const{ctx,scales:{y}}=ch;const yy=y.getPixelForValue(1);
+    ctx.save();ctx.strokeStyle=C.warn;ctx.setLineDash([6,5]);ctx.lineWidth=1.5;
+    ctx.beginPath();ctx.moveTo(ch.chartArea.left,yy);ctx.lineTo(ch.chartArea.right,yy);ctx.stroke();
+    ctx.fillStyle=C.warn;ctx.font="600 11px 'JetBrains Mono'";ctx.fillText('equilíbrio 1,0×',ch.chartArea.left+6,yy-7);ctx.restore();}}]
+});
+
+// animação das barras de share
+addEventListener('load',()=>{document.querySelectorAll('.fill').forEach(f=>{requestAnimationFrame(()=>f.style.width=f.dataset.w+'%')})});
+</script>
+</body>
+</html>
