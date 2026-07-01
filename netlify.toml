@@ -1,6 +1,19 @@
-# Site estático — não há build step, apenas publica a raiz.
+# Site estático + função agendada que atualiza os dados do Windsor.
+
 [build]
   publish = "."
+  functions = "netlify/functions"
+
+# /api/data → função data.js (é o que o dashboard chama)
+[[redirects]]
+  from = "/api/data"
+  to = "/.netlify/functions/data"
+  status = 200
+
+# Agendamento: roda a função de hora em hora para manter o cache quente.
+# (O cron "0 * * * *" = no minuto 0 de cada hora.)
+[functions."data"]
+  schedule = "0 * * * *"
 
 [[headers]]
   for = "/*"
