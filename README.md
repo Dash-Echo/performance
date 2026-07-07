@@ -12,7 +12,7 @@ embutidos no `index.html`; o filtro de datas fatia tudo no navegador, sem backen
   (gasto, impressões, cliques, CPC, CPM, CTR, conversões, R$/conv).
 
 ## Fonte e granularidade
-Dados via Windsor.ai (GA4 · Google Ads · Meta), base diária, 90 dias até 29/06/2026.
+Dados via Windsor.ai (GA4 · Google Ads · Meta), base diária, ano 2026 dividido em meses
 "Sempre baseado no que a plataforma fornece diariamente" — granularidade por dia.
 
 ## Conversões
