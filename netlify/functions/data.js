@@ -1,26 +1,24 @@
-// netlify/functions/data.js
+// functions/api/data.js  (Cloudflare Pages Function)
+// Rota gerada automaticamente: /api/data
+//
 // Busca dados diários (90 dias) de GA4, Google Ads e Meta no Windsor.ai,
-// consolida por data e devolve o mesmo formato que o dashboard consome.
+// consolida por data e devolve o mesmo formato que o dashboard já consome.
+// O front-end continua chamando fetch('/api/data') — nada muda no HTML.
 //
-// É chamada de duas formas:
-//  - pelo navegador (o index.html faz fetch('/api/data'))
-//  - pelo agendador do Netlify, de hora em hora (ver netlify.toml), que mantém
-//    o cache quente para o usuário nunca esperar a chamada à API.
-//
-// A chave do Windsor fica na variável de ambiente WINDSOR_API_KEY (Netlify →
-// Site settings → Environment variables). Ela NUNCA aparece no HTML público.
+// A chave do Windsor fica na variável de ambiente WINDSOR_API_KEY
+// (Cloudflare → seu projeto → Settings → Environment variables).
+// Ela NUNCA aparece no HTML público.
 
 const BASE = "https://connectors.windsor.ai";
 
-// IDs das contas (os mesmos que já usamos no chat)
-const GA4_ACCT   = "339344434";
-const GADS_ACCT  = "431-775-8593";
-const META_ACCT  = "1984275108541772";
+// IDs das contas (os mesmos de sempre)
+const GA4_ACCT  = "339344434";
+const GADS_ACCT = "431-775-8593";
+const META_ACCT = "1984275108541772";
 
 const DATE_PRESET = "last_90d";
 
-async function fetchConnector(connector, fields, accounts) {
-  const key = process.env.WINDSOR_API_KEY;
+async function fetchConnector(connector, fields, accounts, key) {
   if (!key) throw new Error("WINDSOR_API_KEY não configurada");
   const params = new URLSearchParams({
     api_key: key,
@@ -38,16 +36,19 @@ async function fetchConnector(connector, fields, accounts) {
 
 function num(v) { return typeof v === "number" ? v : parseFloat(v) || 0; }
 
-exports.handler = async () => {
+export async function onRequest(context) {
+  // no Cloudflare a chave vem de context.env, não de process.env
+  const key = context.env.WINDSOR_API_KEY;
+
   try {
     // três chamadas em paralelo
     const [ga, gads, meta] = await Promise.all([
       fetchConnector("googleanalytics4",
-        ["date", "sessions", "active_users", "newusers"], GA4_ACCT),
+        ["date", "sessions", "active_users", "newusers"], GA4_ACCT, key),
       fetchConnector("google_ads",
-        ["date", "spend", "impressions", "clicks", "conversions"], GADS_ACCT),
+        ["date", "spend", "impressions", "clicks", "conversions"], GADS_ACCT, key),
       fetchConnector("facebook",
-        ["date", "spend", "impressions", "clicks"], META_ACCT),
+        ["date", "spend", "impressions", "clicks"], META_ACCT, key),
     ]);
 
     // indexa Google Ads e Meta por data
@@ -76,20 +77,21 @@ exports.handler = async () => {
       })
       .sort((a, b) => a.d.localeCompare(b.d));
 
-    return {
-      statusCode: 200,
-      headers: {
-        "Content-Type": "application/json",
-        // cache na CDN do Netlify por 1h; o agendador renova antes de expirar
-        "Cache-Control": "public, max-age=300, s-maxage=3600",
-      },
-      body: JSON.stringify({ updated: new Date().toISOString(), rows: out }),
-    };
+    return new Response(
+      JSON.stringify({ updated: new Date().toISOString(), rows: out }),
+      {
+        status: 200,
+        headers: {
+          "Content-Type": "application/json",
+          // cache na CDN do Cloudflare por 1h
+          "Cache-Control": "public, max-age=300, s-maxage=3600",
+        },
+      }
+    );
   } catch (err) {
-    return {
-      statusCode: 502,
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ error: String(err.message || err) }),
-    };
+    return new Response(
+      JSON.stringify({ error: String(err.message || err) }),
+      { status: 502, headers: { "Content-Type": "application/json" } }
+    );
   }
-};
+}
