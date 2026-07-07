@@ -15,7 +15,10 @@ const GA4_PROPERTY = "339344434";
 const WINDSOR_BASE = "https://connectors.windsor.ai";
 const GADS_ACCT = "431-775-8593";
 const META_ACCT = "1984275108541772";
-const DATE_PRESET = "last_90d";
+
+// Intervalo fixo: ano de 2026 inteiro (01/01 a 31/12)
+const DATE_FROM = "2026-01-01";
+const DATE_TO   = "2026-12-31";
 
 // ---------- utilidades ----------
 function num(v) { return typeof v === "number" ? v : parseFloat(v) || 0; }
@@ -96,7 +99,7 @@ async function getGoogleToken(clientEmail, privateKeyPem) {
 async function fetchGA4(token) {
   const url = `https://analyticsdata.googleapis.com/v1beta/properties/${GA4_PROPERTY}:runReport`;
   const body = {
-    dateRanges: [{ startDate: "90daysAgo", endDate: "today" }],
+    dateRanges: [{ startDate: DATE_FROM, endDate: DATE_TO }],
     dimensions: [{ name: "date" }],
     metrics: [
       { name: "sessions" },
@@ -141,7 +144,8 @@ async function fetchWindsor(connector, fields, accounts, key) {
   if (!key) throw new Error("WINDSOR_API_KEY não configurada");
   const params = new URLSearchParams({
     api_key: key,
-    date_preset: DATE_PRESET,
+    date_from: DATE_FROM,
+    date_to: DATE_TO,
     fields: fields.join(","),
   });
   if (accounts) params.set("accounts", accounts);
