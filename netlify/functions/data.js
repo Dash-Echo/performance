@@ -1,97 +1,709 @@
-// functions/api/data.js  (Cloudflare Pages Function)
-// Rota gerada automaticamente: /api/data
-//
-// Busca dados diários (90 dias) de GA4, Google Ads e Meta no Windsor.ai,
-// consolida por data e devolve o mesmo formato que o dashboard já consome.
-// O front-end continua chamando fetch('/api/data') — nada muda no HTML.
-//
-// A chave do Windsor fica na variável de ambiente WINDSOR_API_KEY
-// (Cloudflare → seu projeto → Settings → Environment variables).
-// Ela NUNCA aparece no HTML público.
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Echoenergia · Dashboard de Mídia Paga</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700;800&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+:root{
+  /* ==========================
+     PALETA OFICIAL ECHOENERGIA
+     ========================== */
 
-const BASE = "https://connectors.windsor.ai";
+  --primary:#2F2870;
+  --secondary:#3369D7;
+  --accent:#FF6E0D;
+  --warning:#F9A51F;
+  --success:#00AD61;
 
-// IDs das contas (os mesmos de sempre)
-const GA4_ACCT  = "339344434";
-const GADS_ACCT = "431-775-8593";
-const META_ACCT = "1984275108541772";
+  --bg:#F5F8FC;
+  --surface:#FFFFFF;
+  --panel:#FFFFFF;
+  --panel-2:#F4F7FD;
 
-const DATE_PRESET = "last_90d";
+  --ink:#12284A;
+  --muted:#6C7A96;
+  --line:#D9E2F2;
 
-async function fetchConnector(connector, fields, accounts, key) {
-  if (!key) throw new Error("WINDSOR_API_KEY não configurada");
-  const params = new URLSearchParams({
-    api_key: key,
-    date_preset: DATE_PRESET,
-    fields: fields.join(","),
+  /* Compatibilidade */
+  --echo:var(--accent);
+  --echo-dim:var(--secondary);
+  --warn:var(--warning);
+
+  --radius:16px;
+}
+
+*{
+  box-sizing:border-box;
+  margin:0;
+  padding:0;
+}
+
+html{
+  scroll-behavior:smooth;
+}
+
+body{
+  background:
+  radial-gradient(circle at 10% 0%, rgba(51,105,215,.12), transparent 35%),
+  radial-gradient(circle at 90% 0%, rgba(255,110,13,.08), transparent 30%),
+  linear-gradient(180deg,#F8FAFD,#EEF3FA);
+  color:var(--ink);
+  font-family:'Inter',system-ui,sans-serif;
+  line-height:1.5;
+  -webkit-font-smoothing:antialiased;
+  min-height:100vh;
+}
+
+.wrap{
+  max-width:1180px;
+  margin:0 auto;
+  padding:0 24px;
+}
+
+header.hero{
+  padding:48px 0 26px;
+}
+
+.brand{
+  display:flex;
+  align-items:center;
+  gap:13px;
+  margin-bottom:26px;
+}
+
+.brand .mark{
+  width:34px;
+  height:34px;
+  border-radius:9px;
+  background:linear-gradient(135deg,var(--primary),var(--secondary));
+  position:relative;
+  flex:none;
+  box-shadow:0 12px 28px rgba(47,40,112,.22);
+}
+
+.brand .mark::after{
+  content:"";
+  position:absolute;
+  inset:9px;
+  border-radius:4px;
+  background:#FFF;
+}
+
+.brand b{
+  font-family:'Sora';
+  font-weight:700;
+  letter-spacing:-.3px;
+  font-size:17px;
+  color:var(--primary);
+}
+
+.brand span{
+  color:var(--muted);
+  font-size:12px;
+  margin-left:2px;
+}
+
+.eyebrow{
+  font-family:'JetBrains Mono';
+  font-size:12px;
+  letter-spacing:2px;
+  text-transform:uppercase;
+  color:var(--accent);
+  margin-bottom:14px;
+}
+
+h1{
+  font-family:'Sora';
+  font-weight:800;
+  font-size:clamp(28px,4.5vw,46px);
+  line-height:1.05;
+  letter-spacing:-1.1px;
+  max-width:20ch;
+}
+
+h1 .hl{
+  color:var(--accent);
+}
+
+.sub{
+  color:var(--muted);
+  max-width:62ch;
+  margin-top:16px;
+  font-size:15.5px;
+}
+
+/* ==========================
+      CONTROLES
+========================== */
+
+.controls{
+  position:sticky;
+  top:0;
+  z-index:50;
+  background:#FFF;
+  backdrop-filter:blur(12px);
+  border:1px solid var(--line);
+  border-radius:var(--radius);
+  padding:16px 18px;
+  margin:22px 0 8px;
+  display:flex;
+  gap:18px;
+  align-items:end;
+  flex-wrap:wrap;
+  box-shadow:0 8px 28px rgba(47,40,112,.08);
+}
+
+.ctrl{
+  display:flex;
+  flex-direction:column;
+  gap:6px;
+}
+
+.ctrl label{
+  font-family:'JetBrains Mono';
+  font-size:10.5px;
+  letter-spacing:1px;
+  text-transform:uppercase;
+  color:var(--muted);
+}
+
+.ctrl input[type=date]{
+  background:#FFF;
+  border:1px solid var(--line);
+  color:var(--ink);
+  font-family:'Inter';
+  font-size:13.5px;
+  padding:9px 12px;
+  border-radius:9px;
+  color-scheme:light;
+}
+
+.ctrl input[type=date]:focus{
+  outline:none;
+  border-color:var(--secondary);
+}
+
+.presets{
+  display:flex;
+  gap:7px;
+  flex-wrap:wrap;
+}
+
+.presets button{
+  background:#FFF;
+  border:1px solid var(--line);
+  color:var(--muted);
+  font-family:'Inter';
+  font-size:12.5px;
+  padding:9px 13px;
+  border-radius:9px;
+  cursor:pointer;
+  transition:.2s;
+}
+
+.presets button:hover{
+  border-color:var(--secondary);
+  color:var(--primary);
+}
+
+.presets button.active{
+  background:var(--primary);
+  color:#FFF;
+  border-color:var(--primary);
+}
+
+.ctrl.range-info{
+  margin-left:auto;
+  text-align:right;
+}
+
+.ctrl.range-info .big{
+  font-family:'Sora';
+  font-weight:700;
+  font-size:15px;
+  color:var(--primary);
+}
+
+.ctrl.range-info .small{
+  font-size:11.5px;
+  color:var(--muted);
+}
+
+section{
+  padding:36px 0;
+}
+
+.sec-head{
+  display:flex;
+  align-items:baseline;
+  gap:14px;
+  margin-bottom:20px;
+}
+
+.sec-head .n{
+  font-family:'JetBrains Mono';
+  color:var(--accent);
+  font-size:13px;
+  font-weight:600;
+}
+
+.sec-head h2{
+  font-family:'Sora';
+  font-weight:700;
+  font-size:22px;
+  letter-spacing:-.5px;
+}
+
+.sec-head .h-note{
+  color:var(--muted);
+  font-size:13px;
+  margin-left:auto;
+  text-align:right;
+}
+
+/* ==========================
+      KPI
+========================== */
+
+.kpis{
+  display:grid;
+  grid-template-columns:repeat(4,1fr);
+  gap:14px;
+}
+
+.kpi{
+  background:#FFF;
+  border:1px solid var(--line);
+  border-radius:var(--radius);
+  padding:18px;
+  box-shadow:0 8px 30px rgba(47,40,112,.08);
+}
+
+.kpi .lab{
+  font-size:11px;
+  text-transform:uppercase;
+  letter-spacing:1.1px;
+  color:var(--muted);
+  font-family:'JetBrains Mono';
+}
+
+.kpi .val{
+  font-family:'Sora';
+  font-weight:700;
+  font-size:25px;
+  margin-top:9px;
+  letter-spacing:-.5px;
+  color:var(--primary);
+}
+
+.kpi .val small{
+  font-size:13px;
+  color:var(--muted);
+}
+
+.kpi .delta{
+  font-size:11.5px;
+  margin-top:6px;
+  font-family:'JetBrains Mono';
+}
+
+.up{
+  color:var(--success);
+}
+
+.down{
+  color:#E5484D;
+}
+
+/* ==========================
+      PAINÉIS
+========================== */
+
+.panel{
+  background:#FFF;
+  border:1px solid var(--line);
+  border-radius:var(--radius);
+  padding:22px;
+  margin-bottom:18px;
+  box-shadow:0 10px 35px rgba(47,40,112,.08);
+}
+
+.panel h3{
+  font-family:'Sora';
+  font-weight:600;
+  font-size:15px;
+  margin-bottom:4px;
+  color:var(--primary);
+}
+
+.panel .desc{
+  color:var(--muted);
+  font-size:12.5px;
+  margin-bottom:18px;
+}
+
+.chart-box{
+  position:relative;
+  height:300px;
+}
+
+.grid2{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:18px;
+}
+
+.grid2 .panel{
+  margin-bottom:0;
+}
+
+/* ==========================
+      TABELAS
+========================== */
+
+table{
+  width:100%;
+  border-collapse:collapse;
+  font-size:13.5px;
+}
+
+th,td{
+  text-align:right;
+  padding:11px 14px;
+  border-bottom:1px solid var(--line);
+}
+
+th:first-child,
+td:first-child{
+  text-align:left;
+}
+
+thead th{
+  font-family:'JetBrains Mono';
+  font-size:11px;
+  text-transform:uppercase;
+  letter-spacing:1px;
+  color:var(--muted);
+  font-weight:600;
+}
+
+td.chan{
+  font-weight:600;
+  font-family:'Sora';
+}
+
+.pill{
+  display:inline-block;
+  width:9px;
+  height:9px;
+  border-radius:50%;
+  margin-right:8px;
+  vertical-align:middle;
+}
+
+td.mono{
+  font-family:'JetBrains Mono';
+}
+
+tfoot td{
+  font-family:'JetBrains Mono';
+  font-weight:700;
+  color:var(--primary);
+  border-top:2px solid var(--line);
+}
+
+.note{
+  color:var(--muted);
+  font-size:12px;
+  margin-top:14px;
+  line-height:1.5;
+}
+
+.note b{
+  color:var(--warning);
+}
+
+footer{
+  border-top:1px solid var(--line);
+  padding:28px 0 50px;
+  color:var(--muted);
+  font-size:12.5px;
+  display:flex;
+  justify-content:space-between;
+  flex-wrap:wrap;
+  gap:12px;
+  margin-top:20px;
+}
+
+footer a{
+  color:var(--secondary);
+  font-weight:600;
+  text-decoration:none;
+}
+
+@media(max-width:860px){
+
+.kpis{
+grid-template-columns:repeat(2,1fr);
+}
+
+.grid2{
+grid-template-columns:1fr;
+}
+
+.sec-head .h-note{
+display:none;
+}
+
+.ctrl.range-info{
+margin-left:0;
+text-align:left;
+width:100%;
+}
+
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="hero">
+    <div class="brand"><div class="mark"></div><b>Echoenergia</b><span>· uma empresa do Grupo Equatorial</span></div>
+    <div class="eyebrow">Dashboard de mídia paga</div>
+    <h1>Acompanhe <span class="hl">tráfego e mídia</span> no intervalo que quiser.</h1>
+    <p class="sub">Escolha qualquer período — um dia, uma semana, um mês — e o painel recalcula tudo: tráfego do site (GA4), gasto, cliques, CPC, CPM e conversões de Google Ads e Meta, lado a lado. Base diária dos últimos 90 dias.</p>
+  </header>
+
+  <!-- CONTROLES -->
+  <div class="controls">
+    <div class="ctrl"><label>De</label><input type="date" id="from"></div>
+    <div class="ctrl"><label>Até</label><input type="date" id="to"></div>
+    <div class="ctrl"><label>Atalhos</label>
+      <div class="presets" id="presets">
+        <button data-d="1">Ontem</button>
+        <button data-d="7">7 dias</button>
+        <button data-d="14">14 dias</button>
+        <button data-d="30" class="active">30 dias</button>
+        <button data-d="90">90 dias</button>
+      </div>
+    </div>
+    <div class="ctrl range-info">
+      <div class="big" id="rangeLabel">—</div>
+      <div class="small" id="rangeDays">—</div>
+    </div>
+  </div>
+
+  <!-- 01 TRÁFEGO -->
+  <section id="trafego">
+    <div class="sec-head"><span class="n">01</span><h2>Tráfego do site</h2><span class="h-note">GA4 · propriedade Website</span></div>
+    <div class="kpis" id="kpiTraffic"></div>
+    <div class="panel" style="margin-top:18px">
+      <h3>Evolução diária</h3>
+      <p class="desc">Sessões, usuários e novos usuários no período selecionado.</p>
+      <div class="chart-box"><canvas id="cTraffic"></canvas></div>
+    </div>
+  </section>
+
+  <!-- 02 MÍDIA PAGA KPIs -->
+  <section id="midia">
+    <div class="sec-head"><span class="n">02</span><h2>Mídia paga no período</h2><span class="h-note">Google Ads + Meta somados</span></div>
+    <div class="kpis" id="kpiMedia"></div>
+  </section>
+
+  <!-- 03 COMPARATIVO POR PLATAFORMA -->
+  <section id="plataformas">
+    <div class="sec-head"><span class="n">03</span><h2>Google vs Meta no período</h2><span class="h-note">Recalcula com o filtro</span></div>
+    <div class="grid2">
+      <div class="panel">
+        <h3>Gasto diário por plataforma</h3>
+        <p class="desc">Quanto cada plataforma consumiu, dia a dia.</p>
+        <div class="chart-box"><canvas id="cSpend"></canvas></div>
+      </div>
+      <div class="panel">
+        <h3>Cliques diários por plataforma</h3>
+        <p class="desc">Volume de cliques por dia.</p>
+        <div class="chart-box"><canvas id="cClicks"></canvas></div>
+      </div>
+    </div>
+    <div class="panel" style="margin-top:18px">
+      <h3>Tabela comparativa do período</h3>
+      <table id="cmpTable">
+        <thead><tr><th>Plataforma</th><th>Gasto</th><th>Impressões</th><th>Cliques</th><th>CPC</th><th>CPM</th><th>CTR</th><th>Conv.*</th><th>R$/conv.</th></tr></thead>
+        <tbody id="cmpBody"></tbody>
+        <tfoot id="cmpFoot"></tfoot>
+      </table>
+      <p class="note"><b>* Conversões nesta tabela</b> usam o registro diário do pixel de cada plataforma (granularidade por dia). Elas são mais conservadoras que a conclusão de funil do GA4 usada na visão de 30 dias — o pixel do Google subcontabiliza leads. Use esta visão para acompanhar tendência e comparar períodos; para o custo-por-lead "real", a referência é o GA4.</p>
+    </div>
+  </section>
+
+  <footer>
+    <span>Echoenergia · dados via Windsor.ai (GA4 · Google Ads · Meta) · base diária 90 dias até 29/06/2026</span>
+    <span>Identidade visual baseada em <a href="https://echoenergia.com.br">echoenergia.com.br</a></span>
+  </footer>
+</div>
+
+<script>
+const FALLBACK_DATA = [{"d": "2026-04-01", "ses": 624, "usr": 497, "new": 456, "g_sp": 242.75, "g_im": 3708, "g_ck": 68, "g_cv": 1, "m_sp": 515.04, "m_im": 26548, "m_ck": 488}, {"d": "2026-04-02", "ses": 709, "usr": 620, "new": 593, "g_sp": 331.77, "g_im": 2778, "g_ck": 183, "g_cv": 7, "m_sp": 507.91, "m_im": 26796, "m_ck": 486}, {"d": "2026-04-03", "ses": 422, "usr": 356, "new": 338, "g_sp": 184.56, "g_im": 3521, "g_ck": 62, "g_cv": 4, "m_sp": 559.91, "m_im": 24535, "m_ck": 477}, {"d": "2026-04-04", "ses": 582, "usr": 486, "new": 470, "g_sp": 285.54, "g_im": 6145, "g_ck": 212, "g_cv": 6, "m_sp": 447.64, "m_im": 23171, "m_ck": 462}, {"d": "2026-04-05", "ses": 479, "usr": 406, "new": 387, "g_sp": 129.6, "g_im": 3465, "g_ck": 71, "g_cv": 3, "m_sp": 556.32, "m_im": 28321, "m_ck": 484}, {"d": "2026-04-06", "ses": 742, "usr": 608, "new": 550, "g_sp": 462.71, "g_im": 7573, "g_ck": 175, "g_cv": 5, "m_sp": 517.05, "m_im": 26220, "m_ck": 449}, {"d": "2026-04-07", "ses": 802, "usr": 639, "new": 577, "g_sp": 326.45, "g_im": 4903, "g_ck": 118, "g_cv": 5, "m_sp": 522.16, "m_im": 25904, "m_ck": 432}, {"d": "2026-04-08", "ses": 775, "usr": 624, "new": 568, "g_sp": 399.0, "g_im": 4950, "g_ck": 153, "g_cv": 4, "m_sp": 522.66, "m_im": 25228, "m_ck": 400}, {"d": "2026-04-09", "ses": 786, "usr": 650, "new": 581, "g_sp": 262.79, "g_im": 3425, "g_ck": 111, "g_cv": 5, "m_sp": 675.0, "m_im": 36663, "m_ck": 583}, {"d": "2026-04-10", "ses": 976, "usr": 834, "new": 778, "g_sp": 430.86, "g_im": 6559, "g_ck": 133, "g_cv": 8, "m_sp": 699.34, "m_im": 33330, "m_ck": 750}, {"d": "2026-04-11", "ses": 453, "usr": 397, "new": 374, "g_sp": 88.64, "g_im": 1910, "g_ck": 42, "g_cv": 0, "m_sp": 563.63, "m_im": 24312, "m_ck": 490}, {"d": "2026-04-12", "ses": 467, "usr": 383, "new": 364, "g_sp": 0.44, "g_im": 31, "g_ck": 0, "g_cv": 0, "m_sp": 799.36, "m_im": 31193, "m_ck": 502}, {"d": "2026-04-13", "ses": 765, "usr": 602, "new": 557, "g_sp": 0.21, "g_im": 28, "g_ck": 1, "g_cv": 0, "m_sp": 683.3, "m_im": 30308, "m_ck": 507}, {"d": "2026-04-14", "ses": 736, "usr": 618, "new": 570, "g_sp": 0.35, "g_im": 55, "g_ck": 0, "g_cv": 0, "m_sp": 623.94, "m_im": 29162, "m_ck": 492}, {"d": "2026-04-15", "ses": 570, "usr": 447, "new": 394, "g_sp": 1.66, "g_im": 284, "g_ck": 5, "g_cv": 0, "m_sp": 611.15, "m_im": 27644, "m_ck": 487}, {"d": "2026-04-16", "ses": 663, "usr": 519, "new": 467, "g_sp": 0.66, "g_im": 89, "g_ck": 2, "g_cv": 0, "m_sp": 617.33, "m_im": 28913, "m_ck": 511}, {"d": "2026-04-17", "ses": 659, "usr": 565, "new": 524, "g_sp": 528.88, "g_im": 11461, "g_ck": 224, "g_cv": 3, "m_sp": 546.19, "m_im": 27197, "m_ck": 481}, {"d": "2026-04-18", "ses": 439, "usr": 403, "new": 376, "g_sp": 333.83, "g_im": 10054, "g_ck": 194, "g_cv": 2, "m_sp": 498.2, "m_im": 29234, "m_ck": 476}, {"d": "2026-04-19", "ses": 489, "usr": 435, "new": 419, "g_sp": 344.12, "g_im": 13781, "g_ck": 236, "g_cv": 0, "m_sp": 772.18, "m_im": 38292, "m_ck": 666}, {"d": "2026-04-20", "ses": 663, "usr": 563, "new": 513, "g_sp": 488.5, "g_im": 12633, "g_ck": 236, "g_cv": 9, "m_sp": 671.59, "m_im": 35371, "m_ck": 600}, {"d": "2026-04-21", "ses": 539, "usr": 475, "new": 447, "g_sp": 419.24, "g_im": 13979, "g_ck": 238, "g_cv": 5, "m_sp": 678.02, "m_im": 36410, "m_ck": 540}, {"d": "2026-04-22", "ses": 712, "usr": 608, "new": 555, "g_sp": 622.3, "g_im": 24924, "g_ck": 265, "g_cv": 9, "m_sp": 683.56, "m_im": 42140, "m_ck": 760}, {"d": "2026-04-23", "ses": 754, "usr": 641, "new": 572, "g_sp": 686.61, "g_im": 24842, "g_ck": 289, "g_cv": 4.5, "m_sp": 718.07, "m_im": 37820, "m_ck": 638}, {"d": "2026-04-24", "ses": 570, "usr": 469, "new": 425, "g_sp": 638.98, "g_im": 23876, "g_ck": 195, "g_cv": 6.5, "m_sp": 630.1, "m_im": 36514, "m_ck": 695}, {"d": "2026-04-25", "ses": 308, "usr": 270, "new": 246, "g_sp": 440.58, "g_im": 22364, "g_ck": 149, "g_cv": 6, "m_sp": 519.21, "m_im": 33692, "m_ck": 641}, {"d": "2026-04-26", "ses": 353, "usr": 309, "new": 289, "g_sp": 415.59, "g_im": 25932, "g_ck": 145, "g_cv": 2, "m_sp": 763.83, "m_im": 42986, "m_ck": 849}, {"d": "2026-04-27", "ses": 790, "usr": 691, "new": 639, "g_sp": 722.64, "g_im": 18956, "g_ck": 204, "g_cv": 8, "m_sp": 724.77, "m_im": 41038, "m_ck": 739}, {"d": "2026-04-28", "ses": 634, "usr": 531, "new": 472, "g_sp": 907.33, "g_im": 19063, "g_ck": 184, "g_cv": 9, "m_sp": 710.08, "m_im": 38246, "m_ck": 622}, {"d": "2026-04-29", "ses": 720, "usr": 610, "new": 553, "g_sp": 982.07, "g_im": 26842, "g_ck": 326, "g_cv": 15, "m_sp": 688.7, "m_im": 37488, "m_ck": 577}, {"d": "2026-04-30", "ses": 561, "usr": 446, "new": 382, "g_sp": 750.52, "g_im": 25844, "g_ck": 202, "g_cv": 5, "m_sp": 717.38, "m_im": 42292, "m_ck": 618}, {"d": "2026-05-01", "ses": 373, "usr": 321, "new": 301, "g_sp": 654.39, "g_im": 29011, "g_ck": 237, "g_cv": 6, "m_sp": 693.11, "m_im": 45644, "m_ck": 755}, {"d": "2026-05-02", "ses": 371, "usr": 321, "new": 299, "g_sp": 650.98, "g_im": 26736, "g_ck": 256, "g_cv": 7.5, "m_sp": 555.82, "m_im": 40142, "m_ck": 642}, {"d": "2026-05-03", "ses": 470, "usr": 423, "new": 386, "g_sp": 976.15, "g_im": 33853, "g_ck": 351, "g_cv": 9.5, "m_sp": 861.9, "m_im": 56869, "m_ck": 878}, {"d": "2026-05-04", "ses": 651, "usr": 538, "new": 474, "g_sp": 1126.19, "g_im": 24200, "g_ck": 246, "g_cv": 9, "m_sp": 784.32, "m_im": 46500, "m_ck": 760}, {"d": "2026-05-05", "ses": 678, "usr": 557, "new": 494, "g_sp": 1071.57, "g_im": 25955, "g_ck": 239, "g_cv": 12, "m_sp": 733.18, "m_im": 41426, "m_ck": 652}, {"d": "2026-05-06", "ses": 815, "usr": 685, "new": 619, "g_sp": 1224.89, "g_im": 24857, "g_ck": 311, "g_cv": 8, "m_sp": 697.27, "m_im": 40817, "m_ck": 590}, {"d": "2026-05-07", "ses": 601, "usr": 482, "new": 428, "g_sp": 1170.79, "g_im": 24484, "g_ck": 201, "g_cv": 7, "m_sp": 642.9, "m_im": 42536, "m_ck": 585}, {"d": "2026-05-08", "ses": 660, "usr": 538, "new": 491, "g_sp": 802.37, "g_im": 31425, "g_ck": 213, "g_cv": 5, "m_sp": 746.86, "m_im": 42551, "m_ck": 557}, {"d": "2026-05-09", "ses": 614, "usr": 516, "new": 485, "g_sp": 851.79, "g_im": 45935, "g_ck": 286, "g_cv": 3.3, "m_sp": 715.78, "m_im": 39052, "m_ck": 503}, {"d": "2026-05-10", "ses": 677, "usr": 554, "new": 525, "g_sp": 746.47, "g_im": 57542, "g_ck": 285, "g_cv": 5.3, "m_sp": 964.25, "m_im": 45104, "m_ck": 693}, {"d": "2026-05-11", "ses": 1057, "usr": 872, "new": 805, "g_sp": 1524.26, "g_im": 56340, "g_ck": 376, "g_cv": 7, "m_sp": 880.36, "m_im": 43441, "m_ck": 589}, {"d": "2026-05-12", "ses": 1024, "usr": 824, "new": 750, "g_sp": 1125.82, "g_im": 46932, "g_ck": 301, "g_cv": 10, "m_sp": 946.66, "m_im": 45695, "m_ck": 654}, {"d": "2026-05-13", "ses": 969, "usr": 787, "new": 708, "g_sp": 1460.09, "g_im": 80625, "g_ck": 455, "g_cv": 10, "m_sp": 887.38, "m_im": 45410, "m_ck": 594}, {"d": "2026-05-14", "ses": 938, "usr": 744, "new": 686, "g_sp": 1527.29, "g_im": 80214, "g_ck": 396, "g_cv": 4.3, "m_sp": 770.88, "m_im": 41632, "m_ck": 587}, {"d": "2026-05-15", "ses": 773, "usr": 606, "new": 552, "g_sp": 997.44, "g_im": 56460, "g_ck": 281, "g_cv": 14, "m_sp": 735.73, "m_im": 39697, "m_ck": 590}, {"d": "2026-05-16", "ses": 657, "usr": 537, "new": 503, "g_sp": 942.22, "g_im": 68848, "g_ck": 358, "g_cv": 5, "m_sp": 658.8, "m_im": 33716, "m_ck": 502}, {"d": "2026-05-17", "ses": 837, "usr": 680, "new": 626, "g_sp": 981.37, "g_im": 66769, "g_ck": 432, "g_cv": 5, "m_sp": 1008.48, "m_im": 49251, "m_ck": 772}, {"d": "2026-05-18", "ses": 1001, "usr": 785, "new": 704, "g_sp": 1611.41, "g_im": 38925, "g_ck": 366, "g_cv": 15, "m_sp": 943.99, "m_im": 43851, "m_ck": 736}, {"d": "2026-05-19", "ses": 1015, "usr": 822, "new": 742, "g_sp": 1566.93, "g_im": 41879, "g_ck": 398, "g_cv": 15.5, "m_sp": 923.39, "m_im": 39393, "m_ck": 721}, {"d": "2026-05-20", "ses": 899, "usr": 709, "new": 634, "g_sp": 1011.09, "g_im": 47977, "g_ck": 291, "g_cv": 2, "m_sp": 826.87, "m_im": 37897, "m_ck": 692}, {"d": "2026-05-21", "ses": 933, "usr": 723, "new": 654, "g_sp": 1187.67, "g_im": 41553, "g_ck": 351, "g_cv": 12.5, "m_sp": 778.56, "m_im": 32499, "m_ck": 675}, {"d": "2026-05-22", "ses": 893, "usr": 701, "new": 623, "g_sp": 1167.65, "g_im": 53277, "g_ck": 362, "g_cv": 9, "m_sp": 713.23, "m_im": 33484, "m_ck": 630}, {"d": "2026-05-23", "ses": 726, "usr": 629, "new": 599, "g_sp": 965.39, "g_im": 51088, "g_ck": 342, "g_cv": 5, "m_sp": 673.16, "m_im": 32892, "m_ck": 701}, {"d": "2026-05-24", "ses": 1065, "usr": 873, "new": 823, "g_sp": 989.97, "g_im": 48588, "g_ck": 391, "g_cv": 4.5, "m_sp": 1103.05, "m_im": 54199, "m_ck": 1128}, {"d": "2026-05-25", "ses": 1121, "usr": 906, "new": 818, "g_sp": 1202.1, "g_im": 34486, "g_ck": 403, "g_cv": 6.5, "m_sp": 807.88, "m_im": 38274, "m_ck": 823}, {"d": "2026-05-26", "ses": 1309, "usr": 1042, "new": 970, "g_sp": 1467.27, "g_im": 45782, "g_ck": 494, "g_cv": 14, "m_sp": 817.44, "m_im": 29210, "m_ck": 890}, {"d": "2026-05-27", "ses": 1002, "usr": 766, "new": 673, "g_sp": 851.72, "g_im": 28492, "g_ck": 282, "g_cv": 6, "m_sp": 724.76, "m_im": 26379, "m_ck": 675}, {"d": "2026-05-28", "ses": 696, "usr": 544, "new": 474, "g_sp": 386.6, "g_im": 21286, "g_ck": 184, "g_cv": 6, "m_sp": 630.8, "m_im": 32675, "m_ck": 435}, {"d": "2026-05-29", "ses": 639, "usr": 491, "new": 432, "g_sp": 340.86, "g_im": 16273, "g_ck": 152, "g_cv": 0, "m_sp": 634.92, "m_im": 31600, "m_ck": 402}, {"d": "2026-05-30", "ses": 455, "usr": 373, "new": 339, "g_sp": 277.65, "g_im": 14754, "g_ck": 135, "g_cv": 1, "m_sp": 561.71, "m_im": 29577, "m_ck": 385}, {"d": "2026-05-31", "ses": 730, "usr": 619, "new": 591, "g_sp": 288.19, "g_im": 11829, "g_ck": 112, "g_cv": 2, "m_sp": 828.45, "m_im": 46171, "m_ck": 686}, {"d": "2026-06-01", "ses": 880, "usr": 675, "new": 595, "g_sp": 300.29, "g_im": 10656, "g_ck": 120, "g_cv": 4, "m_sp": 680.75, "m_im": 38157, "m_ck": 617}, {"d": "2026-06-02", "ses": 736, "usr": 596, "new": 535, "g_sp": 308.72, "g_im": 12934, "g_ck": 158, "g_cv": 1, "m_sp": 614.53, "m_im": 32643, "m_ck": 565}, {"d": "2026-06-03", "ses": 811, "usr": 637, "new": 583, "g_sp": 42.96, "g_im": 2864, "g_ck": 38, "g_cv": 1, "m_sp": 680.82, "m_im": 41543, "m_ck": 705}, {"d": "2026-06-04", "ses": 503, "usr": 407, "new": 382, "g_sp": 0.53, "g_im": 86, "g_ck": 0, "g_cv": 0, "m_sp": 677.55, "m_im": 42203, "m_ck": 727}, {"d": "2026-06-05", "ses": 635, "usr": 481, "new": 430, "g_sp": 0.02, "g_im": 3, "g_ck": 0, "g_cv": 0, "m_sp": 542.61, "m_im": 29603, "m_ck": 674}, {"d": "2026-06-06", "ses": 424, "usr": 339, "new": 319, "g_sp": 2.19, "g_im": 151, "g_ck": 5, "g_cv": 0, "m_sp": 541.84, "m_im": 31421, "m_ck": 543}, {"d": "2026-06-07", "ses": 653, "usr": 505, "new": 472, "g_sp": 22.29, "g_im": 290, "g_ck": 15, "g_cv": 0, "m_sp": 792.4, "m_im": 46704, "m_ck": 1047}, {"d": "2026-06-08", "ses": 907, "usr": 717, "new": 647, "g_sp": 11.13, "g_im": 255, "g_ck": 14, "g_cv": 0, "m_sp": 711.93, "m_im": 42576, "m_ck": 1046}, {"d": "2026-06-09", "ses": 806, "usr": 644, "new": 566, "g_sp": 0.55, "g_im": 77, "g_ck": 1, "g_cv": 0, "m_sp": 707.26, "m_im": 43285, "m_ck": 905}, {"d": "2026-06-10", "ses": 746, "usr": 567, "new": 507, "g_sp": 0.48, "g_im": 62, "g_ck": 0, "g_cv": 0, "m_sp": 618.36, "m_im": 33594, "m_ck": 707}, {"d": "2026-06-11", "ses": 916, "usr": 735, "new": 678, "g_sp": 642.09, "g_im": 18736, "g_ck": 267, "g_cv": 5, "m_sp": 718.6, "m_im": 36284, "m_ck": 771}, {"d": "2026-06-12", "ses": 859, "usr": 727, "new": 686, "g_sp": 764.74, "g_im": 17417, "g_ck": 254, "g_cv": 7, "m_sp": 744.95, "m_im": 42621, "m_ck": 865}, {"d": "2026-06-13", "ses": 696, "usr": 603, "new": 564, "g_sp": 486.56, "g_im": 19580, "g_ck": 298, "g_cv": 1, "m_sp": 637.41, "m_im": 32211, "m_ck": 695}, {"d": "2026-06-14", "ses": 918, "usr": 780, "new": 741, "g_sp": 574.16, "g_im": 20123, "g_ck": 396, "g_cv": 1, "m_sp": 817.05, "m_im": 46149, "m_ck": 862}, {"d": "2026-06-15", "ses": 1023, "usr": 836, "new": 772, "g_sp": 871.19, "g_im": 25241, "g_ck": 305, "g_cv": 2, "m_sp": 690.95, "m_im": 37194, "m_ck": 783}, {"d": "2026-06-16", "ses": 932, "usr": 767, "new": 704, "g_sp": 682.32, "g_im": 25974, "g_ck": 264, "g_cv": 2, "m_sp": 629.62, "m_im": 34980, "m_ck": 717}, {"d": "2026-06-17", "ses": 1035, "usr": 843, "new": 771, "g_sp": 769.6, "g_im": 30262, "g_ck": 329, "g_cv": 1, "m_sp": 636.97, "m_im": 35319, "m_ck": 762}, {"d": "2026-06-18", "ses": 814, "usr": 681, "new": 618, "g_sp": 621.07, "g_im": 32556, "g_ck": 299, "g_cv": 3, "m_sp": 630.3, "m_im": 32495, "m_ck": 660}, {"d": "2026-06-19", "ses": 905, "usr": 749, "new": 696, "g_sp": 740.75, "g_im": 27588, "g_ck": 301, "g_cv": 4, "m_sp": 604.47, "m_im": 30801, "m_ck": 724}, {"d": "2026-06-20", "ses": 685, "usr": 568, "new": 529, "g_sp": 437.35, "g_im": 28116, "g_ck": 254, "g_cv": 3, "m_sp": 614.46, "m_im": 27779, "m_ck": 675}, {"d": "2026-06-21", "ses": 946, "usr": 805, "new": 757, "g_sp": 629.06, "g_im": 29609, "g_ck": 313, "g_cv": 5.2, "m_sp": 866.64, "m_im": 41672, "m_ck": 966}, {"d": "2026-06-22", "ses": 1216, "usr": 1037, "new": 963, "g_sp": 868.36, "g_im": 22558, "g_ck": 479, "g_cv": 12, "m_sp": 738.6, "m_im": 35268, "m_ck": 749}, {"d": "2026-06-23", "ses": 1257, "usr": 1075, "new": 1020, "g_sp": 808.83, "g_im": 14176, "g_ck": 600, "g_cv": 9, "m_sp": 688.93, "m_im": 30414, "m_ck": 755}, {"d": "2026-06-24", "ses": 1312, "usr": 1126, "new": 1066, "g_sp": 1089.33, "g_im": 37882, "g_ck": 944, "g_cv": 16.8, "m_sp": 609.77, "m_im": 27940, "m_ck": 679}, {"d": "2026-06-25", "ses": 1170, "usr": 967, "new": 897, "g_sp": 1079.07, "g_im": 45833, "g_ck": 588, "g_cv": 4, "m_sp": 667.48, "m_im": 30487, "m_ck": 793}, {"d": "2026-06-26", "ses": 1392, "usr": 1175, "new": 1102, "g_sp": 908.03, "g_im": 44384, "g_ck": 555, "g_cv": 6, "m_sp": 1002.51, "m_im": 44761, "m_ck": 1234}, {"d": "2026-06-27", "ses": 1211, "usr": 1037, "new": 988, "g_sp": 724.77, "g_im": 36813, "g_ck": 515, "g_cv": 3, "m_sp": 1231.08, "m_im": 56221, "m_ck": 1385}, {"d": "2026-06-28", "ses": 1443, "usr": 1201, "new": 1136, "g_sp": 779.64, "g_im": 44109, "g_ck": 652, "g_cv": 8, "m_sp": 1381.21, "m_im": 68727, "m_ck": 1559}, {"d": "2026-06-29", "ses": 1030, "usr": 823, "new": 749, "g_sp": 676.33, "g_im": 26290, "g_ck": 359, "g_cv": 5, "m_sp": 1217.28, "m_im": 60750, "m_ck": 1186}];
+let DATA = FALLBACK_DATA; // substituído pela API /api/data quando disponível
+const C={ink:'#EAF2EE',muted:'#8FA39A',line:'#22302A',echo:'#00E08A',google:'#4C8DFF',meta:'#C46BFF',warn:'#FFB454'};
+if(window.Chart){Chart.defaults.color=C.muted;Chart.defaults.font.family="'Inter',sans-serif";Chart.defaults.font.size=12;}
+const grid={color:C.line,drawTicks:false};const noGrid={display:false};
+let MIND=DATA[0].d, MAXD=DATA[DATA.length-1].d;
+const fmt=n=>n.toLocaleString('pt-BR');
+const brl=n=>'R$ '+n.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
+const brl0=n=>'R$ '+Math.round(n).toLocaleString('pt-BR');
+const dlabel=d=>{const[y,m,day]=d.split('-');return day+'/'+m;};
+
+let charts={};
+function slice(from,to){return DATA.filter(r=>r.d>=from&&r.d<=to);}
+
+function agg(rows){
+  const a={ses:0,usr:0,new:0,g_sp:0,g_im:0,g_ck:0,g_cv:0,m_sp:0,m_im:0,m_ck:0};
+  rows.forEach(r=>{for(const k in a)a[k]+=r[k];});
+  return a;
+}
+
+function kpi(lab,val,delta){return '<div class="kpi"><div class="lab">'+lab+'</div><div class="val">'+val+'</div><div class="delta">'+(delta||'')+'</div></div>';}
+
+function render(from,to){
+  const rows=slice(from,to); if(!rows.length)return;
+  const a=agg(rows); const nd=rows.length;
+  // range info
+  document.getElementById('rangeLabel').textContent=dlabel(from)+' — '+dlabel(to);
+  document.getElementById('rangeDays').textContent=nd+(nd>1?' dias':' dia');
+
+  // KPIs tráfego
+  document.getElementById('kpiTraffic').innerHTML=
+    kpi('Sessões',fmt(a.ses),Math.round(a.ses/nd)+' / dia')+
+    kpi('Usuários',fmt(a.usr),'distintos no período')+
+    kpi('Novos usuários',fmt(a.new),(a.usr?Math.round(a.new/a.usr*100):0)+'% dos usuários')+
+    kpi('Sessões / usuário',(a.usr?(a.ses/a.usr).toFixed(2):0),'recorrência no período');
+
+  // KPIs mídia
+  const sp=a.g_sp+a.m_sp, ck=a.g_ck+a.m_ck, im=a.g_im+a.m_im, cv=a.g_cv;
+  document.getElementById('kpiMedia').innerHTML=
+    kpi('Investimento',brl0(sp),'Google '+brl0(a.g_sp)+' · Meta '+brl0(a.m_sp))+
+    kpi('Cliques',fmt(ck),'Meta '+fmt(a.m_ck)+' · Google '+fmt(a.g_ck))+
+    kpi('CPC médio',brl(ck?sp/ck:0),'custo por clique')+
+    kpi('Impressões',fmt(im),'CPM '+brl(im?sp/im*1000:0));
+
+  // tabela comparativa
+  const gCpc=a.g_ck?a.g_sp/a.g_ck:0, gCpm=a.g_im?a.g_sp/a.g_im*1000:0, gCtr=a.g_im?a.g_ck/a.g_im*100:0, gCpl=a.g_cv?a.g_sp/a.g_cv:0;
+  const mCpc=a.m_ck?a.m_sp/a.m_ck:0, mCpm=a.m_im?a.m_sp/a.m_im*1000:0, mCtr=a.m_im?a.m_ck/a.m_im*100:0;
+  document.getElementById('cmpBody').innerHTML=
+    '<tr><td class="chan"><span class="pill" style="background:var(--google)"></span>Google Ads</td>'+
+    '<td class="mono">'+brl0(a.g_sp)+'</td><td class="mono">'+fmt(a.g_im)+'</td><td class="mono">'+fmt(a.g_ck)+'</td>'+
+    '<td class="mono">'+brl(gCpc)+'</td><td class="mono">'+brl(gCpm)+'</td><td class="mono">'+gCtr.toFixed(2)+'%</td>'+
+    '<td class="mono">'+a.g_cv.toFixed(0)+'</td><td class="mono up">'+(gCpl?brl(gCpl):'—')+'</td></tr>'+
+    '<tr><td class="chan"><span class="pill" style="background:var(--meta)"></span>Meta</td>'+
+    '<td class="mono">'+brl0(a.m_sp)+'</td><td class="mono">'+fmt(a.m_im)+'</td><td class="mono">'+fmt(a.m_ck)+'</td>'+
+    '<td class="mono">'+brl(mCpc)+'</td><td class="mono">'+brl(mCpm)+'</td><td class="mono">'+mCtr.toFixed(2)+'%</td>'+
+    '<td class="mono">—</td><td class="mono">—</td></tr>';
+  document.getElementById('cmpFoot').innerHTML=
+    '<tr><td>Total</td><td>'+brl0(sp)+'</td><td>'+fmt(im)+'</td><td>'+fmt(ck)+'</td>'+
+    '<td>'+brl(ck?sp/ck:0)+'</td><td>'+brl(im?sp/im*1000:0)+'</td><td>'+(im?(ck/im*100).toFixed(2):0)+'%</td><td colspan="2"></td></tr>';
+
+  // charts
+  const labels=rows.map(r=>dlabel(r.d));
+  drawTraffic(labels,rows);
+  drawSpend(labels,rows);
+  drawClicks(labels,rows);
+}
+
+function mk(id,cfg){if(!window.Chart)return;if(charts[id])charts[id].destroy();charts[id]=new Chart(document.getElementById(id),cfg);}
+
+function drawTraffic(labels,rows){
+  mk('cTraffic',{type:'line',data:{labels,datasets:[
+    {label:'Sessões',data:rows.map(r=>r.ses),borderColor:C.echo,backgroundColor:'rgba(0,224,138,.08)',fill:true,tension:.35,pointRadius:0,borderWidth:2.5},
+    {label:'Usuários',data:rows.map(r=>r.usr),borderColor:C.google,fill:false,tension:.35,pointRadius:0,borderWidth:2},
+    {label:'Novos usuários',data:rows.map(r=>r.new),borderColor:C.meta,fill:false,tension:.35,pointRadius:0,borderWidth:2,borderDash:[5,4]}
+  ]},options:{maintainAspectRatio:false,interaction:{intersect:false,mode:'index'},
+    plugins:{legend:{labels:{usePointStyle:true,boxWidth:8,padding:18}},tooltip:{callbacks:{label:c=>c.dataset.label+': '+fmt(c.raw)}}},
+    scales:{y:{grid,beginAtZero:true},x:{grid:noGrid,ticks:{maxTicksLimit:12}}}}});
+}
+function drawSpend(labels,rows){
+  mk('cSpend',{type:'line',data:{labels,datasets:[
+    {label:'Google Ads',data:rows.map(r=>r.g_sp),borderColor:C.google,backgroundColor:'rgba(76,141,255,.08)',fill:true,tension:.3,pointRadius:0,borderWidth:2},
+    {label:'Meta',data:rows.map(r=>r.m_sp),borderColor:C.meta,backgroundColor:'rgba(196,107,255,.07)',fill:true,tension:.3,pointRadius:0,borderWidth:2}
+  ]},options:{maintainAspectRatio:false,interaction:{intersect:false,mode:'index'},
+    plugins:{legend:{labels:{usePointStyle:true,boxWidth:8,padding:16}},tooltip:{callbacks:{label:c=>c.dataset.label+': '+brl(c.raw)}}},
+    scales:{y:{grid,beginAtZero:true,ticks:{callback:v=>'R$ '+v}},x:{grid:noGrid,ticks:{maxTicksLimit:12}}}}});
+}
+function drawClicks(labels,rows){
+  mk('cClicks',{type:'line',data:{labels,datasets:[
+    {label:'Google Ads',data:rows.map(r=>r.g_ck),borderColor:C.google,fill:false,tension:.3,pointRadius:0,borderWidth:2},
+    {label:'Meta',data:rows.map(r=>r.m_ck),borderColor:C.meta,fill:false,tension:.3,pointRadius:0,borderWidth:2}
+  ]},options:{maintainAspectRatio:false,interaction:{intersect:false,mode:'index'},
+    plugins:{legend:{labels:{usePointStyle:true,boxWidth:8,padding:16}},tooltip:{callbacks:{label:c=>c.dataset.label+': '+fmt(c.raw)}}},
+    scales:{y:{grid,beginAtZero:true},x:{grid:noGrid,ticks:{maxTicksLimit:12}}}}});
+}
+
+// controles
+const fromEl=document.getElementById('from'), toEl=document.getElementById('to');
+function applyLimits(){
+  MIND=DATA[0].d; MAXD=DATA[DATA.length-1].d;
+  fromEl.min=MIND;fromEl.max=MAXD;toEl.min=MIND;toEl.max=MAXD;
+}
+
+function boot(){
+  applyLimits();
+  preset(30); // estado inicial: últimos 30 dias
+}
+
+function setRange(from,to){
+  if(from<MIND)from=MIND; if(to>MAXD)to=MAXD;
+  fromEl.value=from; toEl.value=to;
+  render(from,to);
+}
+function preset(days){
+  const end=MAXD;
+  let start;
+  if(days===1){start=end;} // ontem = último dia disponível
+  else{const e=new Date(end);e.setDate(e.getDate()-(days-1));start=e.toISOString().slice(0,10);}
+  setRange(start,end);
+}
+document.querySelectorAll('#presets button').forEach(b=>{
+  b.addEventListener('click',()=>{
+    document.querySelectorAll('#presets button').forEach(x=>x.classList.remove('active'));
+    b.classList.add('active');
+    preset(+b.dataset.d);
   });
-  if (accounts) params.set("accounts", accounts);
-  const url = `${BASE}/${connector}?${params.toString()}`;
-  const res = await fetch(url);
-  if (!res.ok) throw new Error(`${connector}: HTTP ${res.status}`);
-  const json = await res.json();
-  // a API devolve { data: [...] } ou [...] dependendo do plano; normaliza
-  return Array.isArray(json) ? json : (json.data || []);
-}
+});
+fromEl.addEventListener('change',()=>{document.querySelectorAll('#presets button').forEach(x=>x.classList.remove('active'));if(fromEl.value&&toEl.value&&fromEl.value<=toEl.value)render(fromEl.value,toEl.value);});
+toEl.addEventListener('change',()=>{document.querySelectorAll('#presets button').forEach(x=>x.classList.remove('active'));if(fromEl.value&&toEl.value&&fromEl.value<=toEl.value)render(fromEl.value,toEl.value);});
 
-function num(v) { return typeof v === "number" ? v : parseFloat(v) || 0; }
+if(!window.Chart){document.querySelectorAll('.chart-box').forEach(b=>{b.innerHTML='<div style="height:100%;display:flex;align-items:center;justify-content:center;color:#8FA39A;font-size:13px;text-align:center;padding:20px">Os gráficos precisam de conexão para carregar a biblioteca. Recarregue a página online.</div>';});}
 
-export async function onRequest(context) {
-  // no Cloudflare a chave vem de context.env, não de process.env
-  const key = context.env.WINDSOR_API_KEY;
-
-  try {
-    // três chamadas em paralelo
-    const [ga, gads, meta] = await Promise.all([
-      fetchConnector("googleanalytics4",
-        ["date", "sessions", "active_users", "newusers"], GA4_ACCT, key),
-      fetchConnector("google_ads",
-        ["date", "spend", "impressions", "clicks", "conversions"], GADS_ACCT, key),
-      fetchConnector("facebook",
-        ["date", "spend", "impressions", "clicks"], META_ACCT, key),
-    ]);
-
-    // indexa Google Ads e Meta por data
-    const gByDate = {}, mByDate = {};
-    gads.forEach(r => { gByDate[r.date] = r; });
-    meta.forEach(r => { mByDate[r.date] = r; });
-
-    // consolida usando as datas do GA4 como espinha dorsal
-    const out = ga
-      .map(r => {
-        const g = gByDate[r.date] || {};
-        const m = mByDate[r.date] || {};
-        return {
-          d: r.date,
-          ses: Math.round(num(r.sessions)),
-          usr: Math.round(num(r.active_users)),
-          new: Math.round(num(r.newusers)),
-          g_sp: +num(g.spend).toFixed(2),
-          g_im: Math.round(num(g.impressions)),
-          g_ck: Math.round(num(g.clicks)),
-          g_cv: +num(g.conversions).toFixed(1),
-          m_sp: +num(m.spend).toFixed(2),
-          m_im: Math.round(num(m.impressions)),
-          m_ck: Math.round(num(m.clicks)),
-        };
-      })
-      .sort((a, b) => a.d.localeCompare(b.d));
-
-    return new Response(
-      JSON.stringify({ updated: new Date().toISOString(), rows: out }),
-      {
-        status: 200,
-        headers: {
-          "Content-Type": "application/json",
-          // cache na CDN do Cloudflare por 1h
-          "Cache-Control": "public, max-age=300, s-maxage=3600",
-        },
+// inicializa: desenha com dados embutidos e tenta atualizar via API Netlify
+(async function init(){
+  boot(); // desenha já, para a tela nunca ficar vazia
+  try{
+    const res = await fetch('/api/data', {cache:'no-store'});
+    if(!res.ok) throw new Error('HTTP '+res.status);
+    const payload = await res.json();
+    if(payload && Array.isArray(payload.rows) && payload.rows.length){
+      DATA = payload.rows;
+      applyLimits();
+      const active=document.querySelector('#presets button.active');
+      if(active){ preset(+active.dataset.d); }
+      else if(fromEl.value&&toEl.value){ render(fromEl.value,toEl.value); }
+      else { preset(30); }
+      if(payload.updated){
+        const d=new Date(payload.updated);
+        const stamp=d.toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});
+        const f=document.querySelector('footer span');
+        if(f) f.textContent = f.textContent.replace(/base di\u00e1ria.*/, 'atualizado em '+stamp+' · via Windsor.ai');
       }
-    );
-  } catch (err) {
-    return new Response(
-      JSON.stringify({ error: String(err.message || err) }),
-      { status: 502, headers: { "Content-Type": "application/json" } }
-    );
+    }
+  }catch(e){
+    console.info('Usando dados embutidos (API indisponível):', e.message);
   }
-}
+})();
+
+</script>
+</body>
+</html>
