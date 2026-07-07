@@ -36,12 +36,15 @@ function b64url(input) {
   return btoa(bin).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 }
 
-// Converte a private_key PEM (PKCS#8) para o formato que a Web Crypto aceita
+// Converte a private_key PEM (PKCS#8) para o formato que a Web Crypto aceita.
+// Trata os dois casos: chave com quebras de linha reais OU com "\n" literais
+// (que é como o campo private_key vem dentro do arquivo JSON).
 function pemToArrayBuffer(pem) {
   const clean = pem
+    .replace(/\\n/g, "")                     // remove \n LITERAIS (do JSON)
     .replace(/-----BEGIN PRIVATE KEY-----/, "")
     .replace(/-----END PRIVATE KEY-----/, "")
-    .replace(/\s+/g, "");
+    .replace(/\s+/g, "");                     // remove quebras/espacos reais
   const bin = atob(clean);
   const buf = new Uint8Array(bin.length);
   for (let i = 0; i < bin.length; i++) buf[i] = bin.charCodeAt(i);
