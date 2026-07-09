@@ -632,7 +632,8 @@ function render(from,to){
   let reachMeta = META_REACH_TOTAL;
   let reachNota = 'pessoas únicas no período';
   if (reachMeta == null) {
-    reachMeta = Math.max(0, ...rows.map(r => num(r.m_rc)));
+    const reaches = rows.map(r => (+r.m_rc || 0));
+    reachMeta = reaches.length ? Math.max(...reaches) : 0;
     reachNota = 'estimativa (offline)';
   }
 
