@@ -171,7 +171,7 @@ async function fetchMeta(token) {
   // time_increment=1 => quebra diária; time_range com since/until
   const timeRange = JSON.stringify({ since: DATE_FROM, until: DATE_TO });
   const params = new URLSearchParams({
-    fields: "spend,impressions,clicks",
+    fields: "spend,impressions,clicks,reach",
     time_increment: "1",
     time_range: timeRange,
     limit: "500",
@@ -193,11 +193,29 @@ async function fetchMeta(token) {
         spend: num(row.spend),
         impressions: num(row.impressions),
         clicks: num(row.clicks),
+        reach: num(row.reach), // reach diário (não somável entre dias)
       };
     }
     url = json.paging?.next || null;
   }
   return byDate;
+}
+
+// Alcance REAL do período inteiro (pessoas únicas) — sem time_increment.
+// É o número correto que não pode ser obtido somando os dias.
+async function fetchMetaReachTotal(token) {
+  const timeRange = JSON.stringify({ since: DATE_FROM, until: DATE_TO });
+  const params = new URLSearchParams({
+    fields: "reach",
+    time_range: timeRange,
+    access_token: token,
+  });
+  const base = `https://graph.facebook.com/${META_API_VER}/act_${META_ACCT}/insights`;
+  const res = await fetch(`${base}?${params.toString()}`);
+  if (!res.ok) throw new Error(`Meta reach total: HTTP ${res.status} ${await res.text()}`);
+  const json = await res.json();
+  const row = (json.data || [])[0] || {};
+  return num(row.reach);
 }
 
 // ---------- handler ----------
@@ -217,8 +235,11 @@ export async function onRequest(context) {
     const adsToken = await getGoogleAdsToken(GADS_CLIENT_ID, GADS_CLIENT_SECRET, GADS_REFRESH_TOKEN);
     const gByDate = await fetchGoogleAds(adsToken, GADS_DEVELOPER_TOKEN);
 
-    // 3) Meta nativo
-    const mByDate = await fetchMeta(META_ACCESS_TOKEN);
+    // 3) Meta nativo (dados diários + alcance real do período)
+    const [mByDate, metaReachTotal] = await Promise.all([
+      fetchMeta(META_ACCESS_TOKEN),
+      fetchMetaReachTotal(META_ACCESS_TOKEN),
+    ]);
 
     // 4) consolida usando as datas do GA4 como espinha dorsal
     const out = gaRows
@@ -235,12 +256,13 @@ export async function onRequest(context) {
           m_sp: +num(m.spend).toFixed(2),
           m_im: Math.round(num(m.impressions)),
           m_ck: Math.round(num(m.clicks)),
+          m_rc: Math.round(num(m.reach)),
         };
       })
       .sort((a, b) => a.d.localeCompare(b.d));
 
     return new Response(
-      JSON.stringify({ updated: new Date().toISOString(), rows: out, source: "all-native" }),
+      JSON.stringify({ updated: new Date().toISOString(), rows: out, meta_reach_total: Math.round(metaReachTotal), source: "all-native" }),
       {
         status: 200,
         headers: {
